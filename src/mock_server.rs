@@ -1,6 +1,7 @@
 use crate::mock::Mock;
 use crate::mock_actor::MockActor;
 use crate::server_actor::ServerActor;
+use crate::Request;
 use async_std::net::TcpStream;
 use bastion::{run, Bastion};
 use log::debug;
@@ -21,12 +22,12 @@ use std::time::Duration;
 /// no cross-test interference.
 ///
 /// You can register as many `Mock`s as your scenario requires on a `MockServer`.
-pub struct MockServer {
+pub struct MockServer<R: Into<Request> + Sized> {
     server_actor: ServerActor,
     mock_actor: MockActor,
 }
 
-impl MockServer {
+impl<R: Into<Request> + Sized> MockServer<R> {
     /// Start a new instance of a `MockServer`.
     ///
     /// Each instance of `MockServer` is fully isolated: `start` takes care of finding a random port
@@ -139,7 +140,7 @@ impl MockServer {
     ///     assert_eq!(status.as_u16(), 404);
     /// }
     /// ```
-    pub async fn register(&self, mock: Mock) {
+    pub async fn register(&self, mock: Mock<R>) {
         self.mock_actor.register(mock).await;
     }
 
@@ -235,7 +236,7 @@ impl MockServer {
     }
 }
 
-impl Drop for MockServer {
+impl<R: Into<Request> + Sized> Drop for MockServer<R> {
     // Clean up when the `MockServer` instance goes out of scope.
     fn drop(&mut self) {
         debug!("Verify mock expectations.");
