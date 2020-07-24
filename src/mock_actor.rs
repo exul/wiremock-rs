@@ -43,7 +43,7 @@ impl MockActor {
                             answer!(ctx, "Registered.").unwrap();
                         };
                         mock: Mock<WebsocketRequest> =!> {
-                            debug!("Registering http mock.");
+                            debug!("Registering ws mock.");
                             ws_mocks.push(ActiveMock::new(mock));
                             answer!(ctx, "Registered.").unwrap();
                         };

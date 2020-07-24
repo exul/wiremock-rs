@@ -12,15 +12,15 @@ use std::time::Duration;
 /// `Match` is the only trait in the whole `wiremock` crate and can be used to extend
 /// the set of matchers provided out-of-the-box to cater to your specific testing needs:
 /// ```rust
-/// use wiremock::{Match, MockServer, Mock, Request, ResponseTemplate};
+/// use wiremock::{Match, MockServer, Mock, HttpRequest, ResponseTemplate};
 /// use wiremock::matchers::HeaderExactMatcher;
 /// use std::convert::TryInto;
 ///
 /// // Check that a header with the specified name exists and its value has an odd length.
 /// pub struct OddHeaderMatcher(http_types::headers::HeaderName);
 ///
-/// impl Match for OddHeaderMatcher {
-///     fn matches(&self, request: &Request) -> bool {
+/// impl Match<HttpRequest> for OddHeaderMatcher {
+///     fn matches(&self, request: &HttpRequest) -> bool {
 ///         match request.headers.get(&self.0) {
 ///             // We are ignoring multi-valued headers for simplicity
 ///             Some(values) => values[0].as_str().len() % 2 == 1,
@@ -62,7 +62,7 @@ use std::time::Duration;
 ///
 /// The previous example could be rewritten as follows:
 /// ```rust
-/// use wiremock::{Match, MockServer, Mock, Request, ResponseTemplate};
+/// use wiremock::{Match, MockServer, Mock, HttpRequest, ResponseTemplate};
 /// use wiremock::matchers::HeaderExactMatcher;
 /// use std::convert::TryInto;
 ///
@@ -73,7 +73,7 @@ use std::time::Duration;
 ///     
 ///     let header_name: http_types::headers::HeaderName = "custom".try_into().unwrap();
 ///     // Check that a header with the specified name exists and its value has an odd length.
-///     let matcher = move |request: &Request| {
+///     let matcher = move |request: &HttpRequest| {
 ///         match request.headers.get(&header_name) {
 ///             Some(values) => values[0].as_str().len() % 2 == 1,
 ///             None => false

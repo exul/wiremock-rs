@@ -1,13 +1,29 @@
 use crate::mock_actor::MockActor;
-use crate::HttpRequest;
 use async_std::net::TcpListener;
 use async_tungstenite::tungstenite::Message;
 use bastion::prelude::*;
 use futures::io::{AsyncReadExt, Cursor};
 use futures::prelude::*;
 use futures::{StreamExt, TryStreamExt};
+use http_types::{Response, StatusCode};
 use log::{debug, info, warn};
+use std::fmt;
 use std::net::SocketAddr;
+
+#[derive(Copy, Clone)]
+pub(crate) enum Protocol {
+    Http,
+    Ws,
+}
+
+impl fmt::Display for Protocol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Protocol::Http => writeln!(f, "http"),
+            Protocol::Ws => writeln!(f, "ws"),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub(crate) struct ServerActor {
@@ -16,16 +32,21 @@ pub(crate) struct ServerActor {
 }
 
 impl ServerActor {
-    pub(crate) async fn start(mock_actor: MockActor) -> ServerActor {
+    pub(crate) async fn start(mock_actor: MockActor, protocol: Protocol) -> ServerActor {
         // Allocate a random port
         let listener = get_available_port()
             .await
             .expect("No free port - cannot start an HTTP mock server!");
-        Self::start_with(listener, mock_actor)
+        Self::start_with(listener, mock_actor, protocol)
     }
 
-    pub(crate) fn start_with(listener: TcpListener, mock_actor: MockActor) -> ServerActor {
+    pub(crate) fn start_with(
+        listener: TcpListener,
+        mock_actor: MockActor,
+        protocol: Protocol,
+    ) -> ServerActor {
         let address = listener.local_addr().unwrap();
+        let protocol = protocol.clone();
         debug!("ADDR: {}", address);
 
         let server_actors = Bastion::children(|children: Children| {
@@ -37,7 +58,7 @@ impl ServerActor {
                                 msg: (ChildRef, TcpListener) => {
                                     let (mock_actor, listener) = msg;
                                     debug!("Mock server started listening on {}!", listener.local_addr().unwrap());
-                                    async_std::task::spawn(listen(mock_actor, listener)).await;
+                                    async_std::task::spawn(listen(mock_actor, listener, protocol)).await;
                                     debug!("Shutting down!");
                                 };
                                 _: _ => {
@@ -65,28 +86,76 @@ impl ServerActor {
     }
 }
 
-async fn listen(mock_actor: ChildRef, listener: async_std::net::TcpListener) {
-    let addr = format!("http://{}", listener.local_addr().unwrap());
+async fn listen(mock_actor: ChildRef, listener: async_std::net::TcpListener, protocol: Protocol) {
+    let mut is_connection_check = true;
+    let addr = format!("{}://{}", protocol, listener.local_addr().unwrap());
     while let Some(stream) = listener.incoming().next().await {
+        // The first connection is from the mock server to verify
+        // that the TCP connection is ready. It's not a proper WS
+        // connection, so the handshake would fail
+        if is_connection_check {
+            debug!("Received first connection");
+            is_connection_check = false;
+            continue;
+        }
         // For each incoming stream, spawn up a task.
         let stream = stream.unwrap();
         let addr = addr.clone();
         let actor = mock_actor.clone();
-        async_std::task::spawn(async {
-            if let Err(err) = accept(actor, addr, stream).await {
-                warn!("{}", err);
+        match protocol {
+            Protocol::Http => {
+                async_std::task::spawn(async {
+                    if let Err(err) = accept_http(actor, addr, stream).await {
+                        warn!("{}", err);
+                    }
+                });
             }
-        });
+            Protocol::Ws => {
+                async_std::task::spawn(async {
+                    if let Err(err) = accept_ws(actor, addr, stream).await {
+                        warn!("{}", err);
+                    }
+                });
+            }
+        }
     }
 }
 
 // Take a TCP stream, and convert it into sequential HTTP request / response pairs.
-async fn accept(
+async fn accept_http(
     mock_actor: ChildRef,
     addr: String,
     stream: async_std::net::TcpStream,
 ) -> http_types::Result<()> {
-    debug!("===== Starting new connection from {}", stream.peer_addr()?);
+    async_h1::accept(&addr, stream.clone(), move |req| {
+        let a = mock_actor.clone();
+        async move {
+            info!("Request: {:?}", req);
+            let answer = (&a).ask_anonymously(req).unwrap();
+
+            let response = msg! { answer.await.expect("Couldn't receive the answer."),
+                msg: Response => msg;
+                _: _ => Response::new(StatusCode::NotFound);
+            };
+            info!("Response: {:?}", response);
+            Ok(response)
+        }
+    })
+    .await?;
+    Ok(())
+}
+
+// Take a TCP stream, and convert it into sequential WS request / response pairs.
+async fn accept_ws(
+    mock_actor: ChildRef,
+    addr: String,
+    stream: async_std::net::TcpStream,
+) -> http_types::Result<()> {
+    debug!(
+        "===== Starting new connection from {} {}",
+        stream.peer_addr()?,
+        addr
+    );
 
     let mut buf = vec![0u8; 1024];
     let mut s = stream.clone();
@@ -120,7 +189,18 @@ async fn accept(
         .try_for_each(|msg| {
             let a = mock_actor.clone();
             async_std::task::spawn(async move {
-                info!("Received a message: {}", msg.to_text().unwrap(),);
+                match msg {
+                    Message::Close(_) => {
+                        info!("Received close message");
+                        return;
+                    }
+                    Message::Text(_) => info!("Received text message"),
+                    _ => {
+                        warn!("Received unsupported message: {:?}", msg);
+                        return;
+                    }
+                };
+                info!("Received a message: {:?}", msg,);
 
                 let answer = (&a).ask_anonymously(msg).unwrap();
 
@@ -139,21 +219,6 @@ async fn accept(
         warn!("Error while reading websocket messages: {}", err);
     }
 
-    // async_h1::accept(&addr, stream.clone(), move |req| {
-    //     let a = mock_actor.clone();
-    //     async move {
-    //         info!("Request: {:?}", req);
-    //         let answer = (&a).ask_anonymously(req).unwrap();
-
-    //         let response = msg! { answer.await.expect("Couldn't receive the answer."),
-    //             msg: Response => msg;
-    //             _: _ => Response::new(StatusCode::NotFound);
-    //         };
-    //         info!("Response: {:?}", response);
-    //         Ok(response)
-    //     }
-    // })
-    // .await?;
     Ok(())
 }
 

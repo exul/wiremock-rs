@@ -81,9 +81,9 @@ async fn simple_route_mock() {
     ws_stream.send(msg).await.unwrap();
     let msg = Message::Text("Hello world2".to_string());
     ws_stream.send(msg).await.unwrap();
-    task::sleep(Duration::from_secs(1)).await;
     println!("sent");
     ws_stream.close(None).await.unwrap();
+    task::sleep(Duration::from_secs(1)).await;
 
     // let mut response = surf::get(format!("{}/hello", &mock_server.uri()))
     //     .await
