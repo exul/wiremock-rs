@@ -66,7 +66,7 @@ async fn simple_route_mock() {
     env_logger::init();
 
     // Arrange
-    let mock_server = MockServer::start().await;
+    let mock_server = MockServer::start_ws().await;
     let response = ResponseTemplate::new(200).set_body_bytes("world");
     let mock = Mock::given(method("GET"))
         .and(PathExactMatcher::new("hello"))

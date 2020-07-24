@@ -1,7 +1,7 @@
 use crate::mock::Mock;
 use crate::mock_actor::MockActor;
 use crate::server_actor::ServerActor;
-use crate::{HttpRequest, Request};
+use crate::{HttpRequest, Request, WebsocketRequest};
 use async_std::net::TcpStream;
 use bastion::{run, Bastion};
 use log::debug;
@@ -72,11 +72,19 @@ impl MockServer {
     /// }
     /// ```
     pub async fn start() -> MockServer {
+        MockServer::_start::<HttpRequest>().await
+    }
+
+    pub async fn start_ws() -> MockServer {
+        MockServer::_start::<WebsocketRequest>().await
+    }
+
+    async fn _start<R: Into<Request> + Sized + std::fmt::Debug>() -> MockServer {
         // Should I put this behind a lazy_static to call them only once?
         Bastion::init();
         Bastion::start();
 
-        let mock_actor = MockActor::start::<HttpRequest>();
+        let mock_actor = MockActor::start::<R>();
 
         // Start our mock server
         let server_actor = ServerActor::start(mock_actor.clone()).await;
