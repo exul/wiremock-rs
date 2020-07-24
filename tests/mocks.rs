@@ -1,4 +1,9 @@
+use async_tungstenite::async_std::connect_async;
+use async_tungstenite::tungstenite::protocol::Message;
+use futures::sink::SinkExt;
+use futures::{future, pin_mut, StreamExt};
 use std::net::TcpStream;
+use surf::url::Url;
 use wiremock::matchers::{method, PathExactMatcher};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -56,6 +61,8 @@ async fn panic_during_expectation_does_not_crash() {
 
 #[async_std::test]
 async fn simple_route_mock() {
+    env_logger::init();
+
     // Arrange
     let mock_server = MockServer::start().await;
     let response = ResponseTemplate::new(200).set_body_bytes("world");
@@ -65,13 +72,19 @@ async fn simple_route_mock() {
     mock_server.register(mock).await;
 
     // Act
-    let mut response = surf::get(format!("{}/hello", &mock_server.uri()))
-        .await
-        .unwrap();
+    let uri = mock_server.uri().replace("http:", "ws:");
+    let (mut ws_stream, _) = connect_async(&uri).await.expect("Failed to connect");
+    // let (write, read) = ws_stream.split();
+    let msg = Message::Text("Hello world".to_string());
+    ws_stream.send(msg).await.unwrap();
+    println!("sent");
+    // let mut response = surf::get(format!("{}/hello", &mock_server.uri()))
+    //     .await
+    //     .unwrap();
 
     // Assert
-    assert_eq!(response.status().as_u16(), 200);
-    assert_eq!(response.body_string().await.unwrap(), "world");
+    // assert_eq!(response.status().as_u16(), 200);
+    // assert_eq!(response.body_string().await.unwrap(), "world");
 }
 
 #[async_std::test]

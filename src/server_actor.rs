@@ -2,9 +2,13 @@ use crate::mock_actor::MockActor;
 use async_std::net::TcpListener;
 use async_std::prelude::*;
 use bastion::prelude::*;
-use http_types::{Response, StatusCode};
-use log::{debug, info, warn};
+use futures::io::{AsyncReadExt, Cursor};
+use futures::prelude::*;
+use futures::{FutureExt, StreamExt, TryStreamExt};
+use log::{debug, error, info, warn};
 use std::net::SocketAddr;
+use std::thread::spawn;
+use std::{env, io::Error};
 
 #[derive(Clone)]
 pub(crate) struct ServerActor {
@@ -23,6 +27,7 @@ impl ServerActor {
 
     pub(crate) fn start_with(listener: TcpListener, mock_actor: MockActor) -> ServerActor {
         let address = listener.local_addr().unwrap();
+        debug!("ADDR: {}", address);
 
         let server_actors = Bastion::children(|children: Children| {
             children
@@ -83,21 +88,54 @@ async fn accept(
     stream: async_std::net::TcpStream,
 ) -> http_types::Result<()> {
     debug!("Starting new connection from {}", stream.peer_addr()?);
-    async_h1::accept(&addr, stream.clone(), move |req| {
-        let a = mock_actor.clone();
-        async move {
-            info!("Request: {:?}", req);
-            let answer = (&a).ask_anonymously(req).unwrap();
 
-            let response = msg! { answer.await.expect("Couldn't receive the answer."),
-                msg: Response => msg;
-                _: _ => Response::new(StatusCode::NotFound);
-            };
-            info!("Response: {:?}", response);
-            Ok(response)
+    let mut buf = vec![0u8; 1024];
+    let mut s = stream.clone();
+
+    // let n = async_std::io::ReadExt::read(&mut s, &mut buf).await?;
+    // debug!("N is: {}", n);
+
+    debug!("Done with tcp init");
+
+    let ws_stream = match async_tungstenite::accept_async(stream.clone()).await {
+        Ok(ws_stream) => ws_stream,
+        Err(err) => {
+            warn!("Error: {}", err);
+            return Ok(());
         }
+    };
+    debug!("Accepted");
+
+    let (write, read) = ws_stream.split();
+    debug!("Split");
+
+    read.try_for_each(|msg| {
+        error!(
+            "Received a message from {}: {}",
+            addr,
+            msg.to_text().unwrap(),
+        );
+        future::ok(())
     })
-    .await?;
+    .await
+    .unwrap();
+    error!("Read");
+
+    // async_h1::accept(&addr, stream.clone(), move |req| {
+    //     let a = mock_actor.clone();
+    //     async move {
+    //         info!("Request: {:?}", req);
+    //         let answer = (&a).ask_anonymously(req).unwrap();
+
+    //         let response = msg! { answer.await.expect("Couldn't receive the answer."),
+    //             msg: Response => msg;
+    //             _: _ => Response::new(StatusCode::NotFound);
+    //         };
+    //         info!("Response: {:?}", response);
+    //         Ok(response)
+    //     }
+    // })
+    // .await?;
     Ok(())
 }
 

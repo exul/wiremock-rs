@@ -87,6 +87,7 @@ impl MockServer {
 
         // Wait (up to 2 second) for the actor to start listening on the specified socket
         for _ in 0..40 {
+            debug!("Will connect now to {}", mock_server.address());
             if TcpStream::connect(mock_server.address()).await.is_ok() {
                 break;
             }
