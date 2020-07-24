@@ -105,10 +105,10 @@ use std::time::Duration;
 ///
 /// [`Mock`]: struct.Mock.html
 /// [`Request`]: struct.Request.html
-pub trait Match: Send + Sync {
+pub trait Match<R: Into<Request>>: Send + Sync {
     /// Given a reference to a `Request`, determine if it should match or not given
     /// a specific criterion.
-    fn matches(&self, request: &Request) -> bool;
+    fn matches(&self, request: &R) -> bool;
 }
 
 /// Wrapper around a `Match` trait object.
@@ -119,15 +119,15 @@ pub trait Match: Send + Sync {
 ///
 /// We wouldn't need this if `bastion` didn't require `Debug` as a trait bound for its Message trait
 /// or if Rust automatically implemented `Debug` for closures.
-pub(crate) struct Matcher(Box<dyn Match>);
+pub(crate) struct Matcher<R>(Box<dyn Match<R>>);
 
-impl Match for Matcher {
-    fn matches(&self, request: &Request) -> bool {
+impl<R> Match<R> for Matcher<R> {
+    fn matches(&self, request: &R) -> bool {
         self.0.matches(request)
     }
 }
 
-impl Debug for Matcher {
+impl<R> Debug for Matcher<R> {
     fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         // Dummy `Debug` implementation to allow us to pass `Matcher` as a message in `bastion`.
         // It's needed because closures do not implement `Debug` and we really want to enable
@@ -212,8 +212,8 @@ impl Debug for Matcher {
 /// [`register`]: struct.MockServer.html#method.register
 /// [`mount`]: #method.mount
 #[derive(Debug)]
-pub struct Mock {
-    pub(crate) matchers: Vec<Matcher>,
+pub struct Mock<R> {
+    pub(crate) matchers: Vec<Matcher<R>>,
     pub(crate) response: ResponseTemplate,
     // Maximum number of times (inclusive) we should return a response from this Mock on
     // matching requests.
@@ -229,17 +229,17 @@ pub struct Mock {
 /// [`Mock`]: struct.Mock.html
 /// [`ResponseTemplate`]: struct.ResponseTemplate.html
 #[derive(Debug)]
-pub struct MockBuilder {
-    pub(crate) matchers: Vec<Matcher>,
+pub struct MockBuilder<R> {
+    pub(crate) matchers: Vec<Matcher<R>>,
 }
 
-impl Mock {
+impl<R> Mock<R> {
     /// Start building a `Mock` specifying the first matcher.
     ///
     /// It returns an instance of [`MockBuilder`].
     ///
     /// [`MockBuilder`]: struct.MockBuilder.html
-    pub fn given<M: 'static + Match>(matcher: M) -> MockBuilder {
+    pub fn given<M: 'static + Match<R>>(matcher: M) -> MockBuilder<R> {
         MockBuilder {
             matchers: vec![Matcher(Box::new(matcher))],
         }
@@ -292,7 +292,7 @@ impl Mock {
     /// ```
     ///
     /// [`matchers`]: matchers/index.html
-    pub fn up_to_n_times(mut self, n: u64) -> Mock {
+    pub fn up_to_n_times(mut self, n: u64) -> Mock<R> {
         assert!(n > 0, "n must be strictly greater than 0!");
         self.max_n_matches = Some(n);
         self
@@ -353,7 +353,7 @@ impl Mock {
     /// ```
     ///
     /// [`MockServer`]: struct.MockServer.html
-    pub fn expect<T: Into<Times>>(mut self, r: T) -> Mock {
+    pub fn expect<T: Into<Times>>(mut self, r: T) -> Mock<R> {
         let range = r.into();
         self.expectation = range;
         self
@@ -368,7 +368,7 @@ impl Mock {
     /// [`MockServer`]: struct.MockServer.html
     /// [`register`]: struct.MockServer.html#method.register
     /// [`mount`]: #method.mount
-    pub async fn mount(self, server: &MockServer) {
+    pub async fn mount(self, server: &MockServer<R>) {
         server.register(self).await;
     }
 
@@ -389,14 +389,14 @@ impl Mock {
     }
 }
 
-impl MockBuilder {
+impl<R> MockBuilder<R> {
     /// Add another request matcher to the mock you are building.
     ///
     /// **All** specified [`matchers`] must match for the overall [`Mock`] to match an incoming request.
     ///
     /// [`matchers`]: matchers/index.html
     /// [`Mock`]: struct.Mock.html
-    pub fn and<M: Match + 'static>(mut self, matcher: M) -> Self {
+    pub fn and<M: Match<R> + 'static>(mut self, matcher: M) -> Self {
         self.matchers.push(Matcher(Box::new(matcher)));
         self
     }
@@ -412,7 +412,7 @@ impl MockBuilder {
     /// [`ResponseTemplate`]: struct.ResponseTemplate.html
     /// [`register`]: struct.MockServer.html#method.register
     /// [`mount`]: #method.mount
-    pub fn respond_with(self, template: ResponseTemplate) -> Mock {
+    pub fn respond_with(self, template: ResponseTemplate) -> Mock<R> {
         Mock {
             matchers: self.matchers,
             response: template,

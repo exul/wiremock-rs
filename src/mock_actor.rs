@@ -8,7 +8,7 @@ use log::{debug, warn};
 use std::time::Duration;
 
 #[derive(Clone)]
-pub(crate) struct MockActor {
+pub(crate) struct MockActor<R> {
     pub actor_ref: ChildRef,
 }
 
@@ -18,9 +18,9 @@ struct Reset {}
 #[derive(Clone, Debug)]
 struct Verify {}
 
-impl MockActor {
+impl<R> MockActor<R> {
     /// Start an instance of our MockActor and return a reference to it.
-    pub(crate) fn start() -> MockActor {
+    pub(crate) fn start() -> MockActor<R> {
         let mock_actors = Bastion::children(|children: Children| {
             children.with_exec(move |ctx: BastionContext| async move {
                 let mut mocks: Vec<ActiveMock> = vec![];
@@ -85,7 +85,7 @@ impl MockActor {
         }
     }
 
-    pub(crate) async fn register(&self, mock: Mock) {
+    pub(crate) async fn register(&self, mock: Mock<R>) {
         self.actor_ref.ask_anonymously(mock).unwrap().await.unwrap();
     }
 
