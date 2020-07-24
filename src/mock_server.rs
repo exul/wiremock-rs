@@ -140,7 +140,10 @@ impl MockServer {
     ///     assert_eq!(status.as_u16(), 404);
     /// }
     /// ```
-    pub async fn register<R: Into<Request> + Sized + std::fmt::Debug>(&self, mock: Mock<R>) {
+    pub async fn register<R: 'static + Into<Request> + Sized + std::fmt::Debug>(
+        &self,
+        mock: Mock<R>,
+    ) {
         self.mock_actor.register(mock).await;
     }
 

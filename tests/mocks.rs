@@ -79,7 +79,6 @@ async fn simple_route_mock() {
     // let (write, read) = ws_stream.split();
     let msg = Message::Text("Hello world".to_string());
     ws_stream.send(msg).await.unwrap();
-    task::sleep(Duration::from_secs(1)).await;
     let msg = Message::Text("Hello world2".to_string());
     ws_stream.send(msg).await.unwrap();
     task::sleep(Duration::from_secs(1)).await;

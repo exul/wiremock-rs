@@ -91,7 +91,10 @@ impl MockActor {
         }
     }
 
-    pub(crate) async fn register<R: Into<Request> + Sized + std::fmt::Debug>(&self, mock: Mock<R>) {
+    pub(crate) async fn register<R: 'static + Into<Request> + Sized + std::fmt::Debug>(
+        &self,
+        mock: Mock<R>,
+    ) {
         self.actor_ref.ask_anonymously(mock).unwrap().await.unwrap();
     }
 

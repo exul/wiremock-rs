@@ -9,7 +9,7 @@ pub(crate) struct ActiveMock<R: Into<Request> + Sized + std::fmt::Debug> {
     n_matched_requests: u64,
 }
 
-impl<R: Into<Request> + Sized + std::fmt::Debug> ActiveMock<R> {
+impl<R: 'static + Into<Request> + Sized + std::fmt::Debug> ActiveMock<R> {
     pub(crate) fn new(specification: Mock<R>) -> Self {
         Self {
             specification,

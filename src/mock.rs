@@ -233,7 +233,7 @@ pub struct MockBuilder<R: Into<Request> + Sized> {
     pub(crate) matchers: Vec<Matcher<R>>,
 }
 
-impl<R: Into<Request> + Sized + std::fmt::Debug> Mock<R> {
+impl<R: 'static + Into<Request> + Sized + std::fmt::Debug> Mock<R> {
     /// Start building a `Mock` specifying the first matcher.
     ///
     /// It returns an instance of [`MockBuilder`].
