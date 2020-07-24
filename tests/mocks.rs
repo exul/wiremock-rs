@@ -1,8 +1,10 @@
+use async_std::task;
 use async_tungstenite::async_std::connect_async;
 use async_tungstenite::tungstenite::protocol::Message;
 use futures::sink::SinkExt;
 use futures::{future, pin_mut, StreamExt};
 use std::net::TcpStream;
+use std::time::Duration;
 use surf::url::Url;
 use wiremock::matchers::{method, PathExactMatcher};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -77,7 +79,13 @@ async fn simple_route_mock() {
     // let (write, read) = ws_stream.split();
     let msg = Message::Text("Hello world".to_string());
     ws_stream.send(msg).await.unwrap();
+    task::sleep(Duration::from_secs(1)).await;
+    let msg = Message::Text("Hello world2".to_string());
+    ws_stream.send(msg).await.unwrap();
+    task::sleep(Duration::from_secs(1)).await;
     println!("sent");
+    ws_stream.close(None).await.unwrap();
+
     // let mut response = surf::get(format!("{}/hello", &mock_server.uri()))
     //     .await
     //     .unwrap();

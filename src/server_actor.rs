@@ -1,14 +1,12 @@
 use crate::mock_actor::MockActor;
 use async_std::net::TcpListener;
-use async_std::prelude::*;
+use async_tungstenite::tungstenite::Message;
 use bastion::prelude::*;
 use futures::io::{AsyncReadExt, Cursor};
 use futures::prelude::*;
-use futures::{FutureExt, StreamExt, TryStreamExt};
-use log::{debug, error, info, warn};
+use futures::{StreamExt, TryStreamExt};
+use log::{debug, info, warn};
 use std::net::SocketAddr;
-use std::thread::spawn;
-use std::{env, io::Error};
 
 #[derive(Clone)]
 pub(crate) struct ServerActor {
@@ -87,7 +85,7 @@ async fn accept(
     addr: String,
     stream: async_std::net::TcpStream,
 ) -> http_types::Result<()> {
-    debug!("Starting new connection from {}", stream.peer_addr()?);
+    debug!("===== Starting new connection from {}", stream.peer_addr()?);
 
     let mut buf = vec![0u8; 1024];
     let mut s = stream.clone();
@@ -97,7 +95,7 @@ async fn accept(
 
     debug!("Done with tcp init");
 
-    let ws_stream = match async_tungstenite::accept_async(stream.clone()).await {
+    let mut ws_stream = match async_tungstenite::accept_async(stream.clone()).await {
         Ok(ws_stream) => ws_stream,
         Err(err) => {
             warn!("Error: {}", err);
@@ -106,20 +104,39 @@ async fn accept(
     };
     debug!("Accepted");
 
-    let (write, read) = ws_stream.split();
+    let (write, mut read) = ws_stream.split();
     debug!("Split");
 
-    read.try_for_each(|msg| {
-        error!(
-            "Received a message from {}: {}",
-            addr,
-            msg.to_text().unwrap(),
-        );
-        future::ok(())
-    })
-    .await
-    .unwrap();
-    error!("Read");
+    // let msg = ws_stream
+    //     .next()
+    //     .await
+    //     .ok_or_else(|| "didn't receive anything")
+    //     .unwrap()
+    //     .unwrap();
+    // error!("MMMSG: {}", msg);
+
+    let res = read
+        .try_for_each(|msg| {
+            let a = mock_actor.clone();
+            async_std::task::spawn(async move {
+                info!("Received a message: {}", msg.to_text().unwrap(),);
+
+                let answer = (&a).ask_anonymously(msg).unwrap();
+
+                let response = msg! { answer.await.expect("Couldn't receive the answer."),
+                    msg: Message => msg;
+                    _: _ => Message::Text("Hello".to_string());
+                };
+                info!("Response: {:?}", response);
+            });
+
+            future::ok(())
+        })
+        .await;
+
+    if let Err(err) = res {
+        warn!("Error while reading websocket messages: {}", err);
+    }
 
     // async_h1::accept(&addr, stream.clone(), move |req| {
     //     let a = mock_actor.clone();

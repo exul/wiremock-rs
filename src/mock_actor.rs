@@ -1,5 +1,6 @@
 use crate::active_mock::ActiveMock;
 use crate::{Mock, Request};
+use async_tungstenite::tungstenite;
 use bastion::prelude::*;
 use futures_timer::Delay;
 use http_types::{Response, StatusCode};
@@ -63,6 +64,11 @@ impl MockActor {
                                 let res = Response::new(StatusCode::NotFound);
                                 answer!(ctx, res).unwrap();
                             }
+                        };
+                        request: tungstenite::Message =!> {
+                            debug!("Handling websocket request");
+                            let res = tungstenite::Message::Text("Hello".to_string());
+                            answer!(ctx, res).unwrap();
                         };
                         _: _ => {
                             warn!("Received a message I was not listening for.");
