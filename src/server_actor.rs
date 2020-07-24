@@ -1,4 +1,5 @@
 use crate::mock_actor::MockActor;
+use crate::HttpRequest;
 use async_std::net::TcpListener;
 use async_tungstenite::tungstenite::Message;
 use bastion::prelude::*;

@@ -4,12 +4,12 @@ use std::time::Duration;
 
 // Given the behaviour specification as a `Mock`, keep track of runtime information concerning
 // this mock - e.g. how many times it matched on a incoming request.
-pub(crate) struct ActiveMock<R: Into<Request> + Sized> {
+pub(crate) struct ActiveMock<R: Into<Request> + Sized + std::fmt::Debug> {
     specification: Mock<R>,
     n_matched_requests: u64,
 }
 
-impl<R: Into<Request> + Sized> ActiveMock<R> {
+impl<R: Into<Request> + Sized + std::fmt::Debug> ActiveMock<R> {
     pub(crate) fn new(specification: Mock<R>) -> Self {
         Self {
             specification,
@@ -22,7 +22,7 @@ impl<R: Into<Request> + Sized> ActiveMock<R> {
     /// additional information (e.g. how many requests we matched so far) or change behaviour
     /// after a certain threshold has been crossed (e.g. start returning `false` for all requests
     /// once enough requests have been matched according to `max_n_matches`).
-    pub(crate) fn matches(&mut self, request: &Request) -> bool {
+    pub(crate) fn matches(&mut self, request: &R) -> bool {
         if Some(self.n_matched_requests) == self.specification.max_n_matches {
             // Skip the actual check if we are already at our maximum of matched requests.
             false

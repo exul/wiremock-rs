@@ -23,7 +23,7 @@ use std::str;
 /// if their signature is compatible.
 impl<F, R> Match<R> for F
 where
-    F: Fn(&Request) -> bool,
+    F: Fn(&R) -> bool,
     F: Send + Sync,
     R: Into<Request> + Sized,
 {
@@ -86,7 +86,7 @@ impl MethodExactMatcher {
 }
 
 impl Match<HttpRequest> for MethodExactMatcher {
-    fn matches(&self, request: &Request) -> bool {
+    fn matches(&self, request: &HttpRequest) -> bool {
         request.method == self.0
     }
 }
@@ -172,7 +172,7 @@ impl PathExactMatcher {
 }
 
 impl Match<HttpRequest> for PathExactMatcher {
-    fn matches(&self, request: &Request) -> bool {
+    fn matches(&self, request: &HttpRequest) -> bool {
         request.url.path() == self.0
     }
 }
@@ -250,7 +250,7 @@ impl PathRegexMatcher {
 }
 
 impl Match<HttpRequest> for PathRegexMatcher {
-    fn matches(&self, request: &Request) -> bool {
+    fn matches(&self, request: &HttpRequest) -> bool {
         self.0.is_match(request.url.path())
     }
 }
@@ -314,7 +314,7 @@ impl HeaderExactMatcher {
 }
 
 impl Match<HttpRequest> for HeaderExactMatcher {
-    fn matches(&self, request: &Request) -> bool {
+    fn matches(&self, request: &HttpRequest) -> bool {
         match request.headers.get(&self.0) {
             None => false,
             Some(values) => values.contains(&self.1),
@@ -430,7 +430,7 @@ where
 }
 
 impl Match<HttpRequest> for BodyExactMatcher {
-    fn matches(&self, request: &Request) -> bool {
+    fn matches(&self, request: &HttpRequest) -> bool {
         request.body == self.0
     }
 }
@@ -482,7 +482,7 @@ where
 }
 
 impl Match<HttpRequest> for BodyContainsMatcher {
-    fn matches(&self, request: &Request) -> bool {
+    fn matches(&self, request: &HttpRequest) -> bool {
         let body = match str::from_utf8(&request.body) {
             Ok(body) => body.to_string(),
             Err(err) => {
@@ -555,7 +555,7 @@ where
 }
 
 impl Match<HttpRequest> for QueryParamExactMatcher {
-    fn matches(&self, request: &Request) -> bool {
+    fn matches(&self, request: &HttpRequest) -> bool {
         request
             .url
             .query_pairs()

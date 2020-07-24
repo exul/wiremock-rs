@@ -1,5 +1,5 @@
 use crate::active_mock::ActiveMock;
-use crate::{Mock, Request};
+use crate::{HttpRequest, Mock, Request, WebsocketRequest};
 use async_tungstenite::tungstenite;
 use bastion::prelude::*;
 use futures_timer::Delay;
@@ -20,10 +20,11 @@ struct Verify {}
 
 impl MockActor {
     /// Start an instance of our MockActor and return a reference to it.
-    pub(crate) fn start() -> MockActor {
+    pub(crate) fn start<R: Into<Request> + Sized + std::fmt::Debug>() -> MockActor {
         let mock_actors = Bastion::children(|children: Children| {
             children.with_exec(move |ctx: BastionContext| async move {
-                let mut mocks: Vec<ActiveMock> = vec![];
+                let mut mocks: Vec<ActiveMock<HttpRequest>> = vec![];
+                let mut ws_mocks: Vec<ActiveMock<WebsocketRequest>> = vec![];
                 loop {
                     msg! { ctx.recv().await?,
                         _reset: Reset =!> {
@@ -36,9 +37,14 @@ impl MockActor {
                             let verified = mocks.iter().all(|m| m.verify());
                             answer!(ctx, verified).unwrap();
                         };
-                        mock: Mock =!> {
-                            debug!("Registering mock.");
+                        mock: Mock<HttpRequest> =!> {
+                            debug!("Registering http mock.");
                             mocks.push(ActiveMock::new(mock));
+                            answer!(ctx, "Registered.").unwrap();
+                        };
+                        mock: Mock<WebsocketRequest> =!> {
+                            debug!("Registering http mock.");
+                            ws_mocks.push(ActiveMock::new(mock));
                             answer!(ctx, "Registered.").unwrap();
                         };
                         request: http_types::Request =!> {
@@ -85,7 +91,7 @@ impl MockActor {
         }
     }
 
-    pub(crate) async fn register(&self, mock: Mock) {
+    pub(crate) async fn register<R: Into<Request> + Sized + std::fmt::Debug>(&self, mock: Mock<R>) {
         self.actor_ref.ask_anonymously(mock).unwrap().await.unwrap();
     }
 

@@ -55,25 +55,29 @@ impl Into<Request> for WebsocketRequest {
 impl fmt::Display for Request {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Request::Http(req) => {
-                writeln!(f, "{} {}", req.method, req.url)?;
-                for (name, values) in &req.headers {
-                    let values = values
-                        .iter()
-                        .map(|value| format!("{}", value))
-                        .collect::<Vec<_>>();
-                    let values = values.join(",");
-                    writeln!(f, "{}: {}", name, values)?;
-                }
-                writeln!(f, "{}", String::from_utf8_lossy(&req.body))
-            }
+            Request::Http(req) => req.fmt(f),
             Request::Websocket(req) => writeln!(f, "{}", String::from_utf8_lossy(&req.body)),
         }
     }
 }
 
+impl fmt::Display for HttpRequest {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "{} {}", self.method, self.url)?;
+        for (name, values) in &self.headers {
+            let values = values
+                .iter()
+                .map(|value| format!("{}", value))
+                .collect::<Vec<_>>();
+            let values = values.join(",");
+            writeln!(f, "{}: {}", name, values)?;
+        }
+        writeln!(f, "{}", String::from_utf8_lossy(&self.body))
+    }
+}
+
 impl Request {
-    pub async fn from(mut request: http_types::Request) -> Request {
+    pub async fn from(mut request: http_types::Request) -> HttpRequest {
         let method = request.method();
         let url = request.url().to_owned();
 
@@ -90,11 +94,11 @@ impl Request {
             .await
             .expect("Failed to read body");
 
-        Request::Http(HttpRequest {
+        HttpRequest {
             url,
             method,
             headers,
             body,
-        })
+        }
     }
 }

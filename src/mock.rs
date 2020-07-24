@@ -1,5 +1,5 @@
 use crate::response_template::ResponseTemplate;
-use crate::{MockServer, Request};
+use crate::{HttpRequest, MockServer, Request};
 use http_types::Response;
 use std::fmt::{Debug, Formatter};
 use std::ops::{
@@ -122,7 +122,7 @@ pub trait Match<R: Into<Request> + Sized>: Send + Sync {
 pub(crate) struct Matcher<R: Into<Request> + Sized>(Box<dyn Match<R>>);
 
 impl<R: Into<Request> + Sized> Match<R> for Matcher<R> {
-    fn matches(&self, request: &Request) -> bool {
+    fn matches(&self, request: &R) -> bool {
         self.0.matches(request)
     }
 }
@@ -212,7 +212,7 @@ impl<R: Into<Request> + Sized> Debug for Matcher<R> {
 /// [`register`]: struct.MockServer.html#method.register
 /// [`mount`]: #method.mount
 #[derive(Debug)]
-pub struct Mock<R: Into<Request> + Sized> {
+pub struct Mock<R: Into<Request> + Sized + std::fmt::Debug> {
     pub(crate) matchers: Vec<Matcher<R>>,
     pub(crate) response: ResponseTemplate,
     // Maximum number of times (inclusive) we should return a response from this Mock on
@@ -233,7 +233,7 @@ pub struct MockBuilder<R: Into<Request> + Sized> {
     pub(crate) matchers: Vec<Matcher<R>>,
 }
 
-impl<R: Into<Request> + Sized> Mock<R> {
+impl<R: Into<Request> + Sized + std::fmt::Debug> Mock<R> {
     /// Start building a `Mock` specifying the first matcher.
     ///
     /// It returns an instance of [`MockBuilder`].
@@ -368,7 +368,7 @@ impl<R: Into<Request> + Sized> Mock<R> {
     /// [`MockServer`]: struct.MockServer.html
     /// [`register`]: struct.MockServer.html#method.register
     /// [`mount`]: #method.mount
-    pub async fn mount(self, server: &MockServer<R>) {
+    pub async fn mount(self, server: &MockServer) {
         server.register(self).await;
     }
 
@@ -389,7 +389,7 @@ impl<R: Into<Request> + Sized> Mock<R> {
     }
 }
 
-impl<R: Into<Request> + Sized> MockBuilder<R> {
+impl<R: Into<Request> + Sized + std::fmt::Debug> MockBuilder<R> {
     /// Add another request matcher to the mock you are building.
     ///
     /// **All** specified [`matchers`] must match for the overall [`Mock`] to match an incoming request.
