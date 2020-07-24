@@ -22,53 +22,25 @@ use std::{collections::HashMap, fmt};
 /// arrives in the mock serve, store the result and pass an immutable reference to it
 /// to all our matchers.
 #[derive(Debug)]
-pub struct HttpRequest {
+pub struct Request {
     pub url: Url,
     pub method: Method,
     pub headers: HashMap<HeaderName, Vec<HeaderValue>>,
     pub body: Vec<u8>,
 }
 
-#[derive(Debug)]
-pub struct WebsocketRequest {
-    pub body: Vec<u8>,
-}
-
-#[derive(Debug)]
-pub enum Request {
-    Http(HttpRequest),
-    Websocket(WebsocketRequest),
-}
-
-impl Into<Request> for HttpRequest {
-    fn into(self) -> Request {
-        Request::Http(self)
-    }
-}
-
-impl Into<Request> for WebsocketRequest {
-    fn into(self) -> Request {
-        Request::Websocket(self)
-    }
-}
-
 impl fmt::Display for Request {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Request::Http(req) => {
-                writeln!(f, "{} {}", req.method, req.url)?;
-                for (name, values) in &req.headers {
-                    let values = values
-                        .iter()
-                        .map(|value| format!("{}", value))
-                        .collect::<Vec<_>>();
-                    let values = values.join(",");
-                    writeln!(f, "{}: {}", name, values)?;
-                }
-                writeln!(f, "{}", String::from_utf8_lossy(&req.body))
-            }
-            Request::Websocket(req) => writeln!(f, "{}", String::from_utf8_lossy(&req.body)),
+        writeln!(f, "{} {}", self.method, self.url)?;
+        for (name, values) in &self.headers {
+            let values = values
+                .iter()
+                .map(|value| format!("{}", value))
+                .collect::<Vec<_>>();
+            let values = values.join(",");
+            writeln!(f, "{}: {}", name, values)?;
         }
+        writeln!(f, "{}", String::from_utf8_lossy(&self.body))
     }
 }
 

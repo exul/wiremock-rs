@@ -21,12 +21,12 @@ use std::time::Duration;
 /// no cross-test interference.
 ///
 /// You can register as many `Mock`s as your scenario requires on a `MockServer`.
-pub struct MockServer<R> {
-    server_actor: ServerActor<R>,
-    mock_actor: MockActor<R>,
+pub struct MockServer {
+    server_actor: ServerActor,
+    mock_actor: MockActor,
 }
 
-impl<R> MockServer<R> {
+impl MockServer {
     /// Start a new instance of a `MockServer`.
     ///
     /// Each instance of `MockServer` is fully isolated: `start` takes care of finding a random port
@@ -139,7 +139,7 @@ impl<R> MockServer<R> {
     ///     assert_eq!(status.as_u16(), 404);
     /// }
     /// ```
-    pub async fn register(&self, mock: Mock<R>) {
+    pub async fn register(&self, mock: Mock) {
         self.mock_actor.register(mock).await;
     }
 
@@ -235,7 +235,7 @@ impl<R> MockServer<R> {
     }
 }
 
-impl<R> Drop for MockServer<R> {
+impl Drop for MockServer {
     // Clean up when the `MockServer` instance goes out of scope.
     fn drop(&mut self) {
         debug!("Verify mock expectations.");

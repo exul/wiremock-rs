@@ -9,13 +9,13 @@ use log::{debug, info, warn};
 use std::net::SocketAddr;
 
 #[derive(Clone)]
-pub(crate) struct ServerActor<R> {
+pub(crate) struct ServerActor {
     pub(crate) actor_ref: ChildRef,
     pub(crate) address: SocketAddr,
 }
 
-impl<R> ServerActor<R> {
-    pub(crate) async fn start(mock_actor: MockActor<R>) -> ServerActor {
+impl ServerActor {
+    pub(crate) async fn start(mock_actor: MockActor) -> ServerActor {
         // Allocate a random port
         let listener = get_available_port()
             .await
@@ -23,7 +23,7 @@ impl<R> ServerActor<R> {
         Self::start_with(listener, mock_actor)
     }
 
-    pub(crate) fn start_with(listener: TcpListener, mock_actor: MockActor<R>) -> ServerActor<R> {
+    pub(crate) fn start_with(listener: TcpListener, mock_actor: MockActor) -> ServerActor {
         let address = listener.local_addr().unwrap();
         debug!("ADDR: {}", address);
 

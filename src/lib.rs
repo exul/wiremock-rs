@@ -130,5 +130,5 @@ mod server_actor;
 
 pub use mock::{Match, Mock, MockBuilder, Times};
 pub use mock_server::MockServer;
-pub use request::{HttpRequest, Request};
+pub use request::Request;
 pub use response_template::ResponseTemplate;

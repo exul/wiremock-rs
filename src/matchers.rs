@@ -10,7 +10,7 @@
 //!
 //! [`Match`]: ../trait.Match.html
 //! [`Request`]: ../struct.Request.html
-use crate::{HttpRequest, Match, Request};
+use crate::{Match, Request};
 use http_types::headers::{HeaderName, HeaderValue};
 use http_types::Method;
 use log::debug;
@@ -21,13 +21,12 @@ use std::str;
 
 /// Implement the `Match` trait for all closures, out of the box,
 /// if their signature is compatible.
-impl<F, R> Match<R> for F
+impl<F> Match for F
 where
     F: Fn(&Request) -> bool,
     F: Send + Sync,
-    R: Into<Request>,
 {
-    fn matches(&self, request: &R) -> bool {
+    fn matches(&self, request: &Request) -> bool {
         // Just call the closure itself!
         self(request)
     }
@@ -85,8 +84,8 @@ impl MethodExactMatcher {
     }
 }
 
-impl Match<HttpRequest> for MethodExactMatcher {
-    fn matches(&self, request: &HttpRequest) -> bool {
+impl Match for MethodExactMatcher {
+    fn matches(&self, request: &Request) -> bool {
         request.method == self.0
     }
 }
@@ -171,7 +170,7 @@ impl PathExactMatcher {
     }
 }
 
-impl Match<HttpRequest> for PathExactMatcher {
+impl Match for PathExactMatcher {
     fn matches(&self, request: &Request) -> bool {
         request.url.path() == self.0
     }
@@ -249,7 +248,7 @@ impl PathRegexMatcher {
     }
 }
 
-impl Match<HttpRequest> for PathRegexMatcher {
+impl Match for PathRegexMatcher {
     fn matches(&self, request: &Request) -> bool {
         self.0.is_match(request.url.path())
     }
@@ -313,7 +312,7 @@ impl HeaderExactMatcher {
     }
 }
 
-impl Match<HttpRequest> for HeaderExactMatcher {
+impl Match for HeaderExactMatcher {
     fn matches(&self, request: &Request) -> bool {
         match request.headers.get(&self.0) {
             None => false,
@@ -429,7 +428,7 @@ where
     BodyExactMatcher::bytes(body)
 }
 
-impl Match<HttpRequest> for BodyExactMatcher {
+impl Match for BodyExactMatcher {
     fn matches(&self, request: &Request) -> bool {
         request.body == self.0
     }
@@ -481,7 +480,7 @@ where
     BodyContainsMatcher::string(body)
 }
 
-impl Match<HttpRequest> for BodyContainsMatcher {
+impl Match for BodyContainsMatcher {
     fn matches(&self, request: &Request) -> bool {
         let body = match str::from_utf8(&request.body) {
             Ok(body) => body.to_string(),
@@ -554,7 +553,7 @@ where
     QueryParamExactMatcher::new(key, value)
 }
 
-impl Match<HttpRequest> for QueryParamExactMatcher {
+impl Match for QueryParamExactMatcher {
     fn matches(&self, request: &Request) -> bool {
         request
             .url

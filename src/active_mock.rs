@@ -4,13 +4,13 @@ use std::time::Duration;
 
 // Given the behaviour specification as a `Mock`, keep track of runtime information concerning
 // this mock - e.g. how many times it matched on a incoming request.
-pub(crate) struct ActiveMock<R> {
-    specification: Mock<R>,
+pub(crate) struct ActiveMock {
+    specification: Mock,
     n_matched_requests: u64,
 }
 
-impl<R> ActiveMock<R> {
-    pub(crate) fn new(specification: Mock<R>) -> Self {
+impl ActiveMock {
+    pub(crate) fn new(specification: Mock) -> Self {
         Self {
             specification,
             n_matched_requests: 0,
